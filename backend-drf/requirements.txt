@@ -31,3 +31,5 @@ websockets==16.0
 yfinance==1.2.0
 gunicorn
 whitenoise
+psycopg2-binary
+dj-database-url
