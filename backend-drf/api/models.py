@@ -2,9 +2,9 @@ from django.db import models
 
 
 class StockMetric(models.Model):
-	symbol = models.CharField(max_length=20)
+	symbol = models.CharField(max_length=20, db_index=True)
 	# Exchange: NSE, BSE, NASDAQ, NYSE, etc. Default UNKNOWN to avoid migration issues.
-	exchange = models.CharField(max_length=10, default='UNKNOWN')
+	exchange = models.CharField(max_length=10, default='UNKNOWN', db_index=True)
 
 	# Yahoo ticker mapping (e.g., RELIANCE.NS for NSE, TCS.BO for BSE)
 	yahoo_ticker = models.CharField(max_length=32, null=True, blank=True)
@@ -38,7 +38,7 @@ class StockMetric(models.Model):
 	earnings_growth = models.FloatField(null=True, blank=True)
 
 	# Market
-	market_cap = models.BigIntegerField(null=True, blank=True)
+	market_cap = models.FloatField(null=True, blank=True)
 	dividend_yield = models.FloatField(null=True, blank=True)
 
 	last_updated = models.DateTimeField(auto_now=True)
