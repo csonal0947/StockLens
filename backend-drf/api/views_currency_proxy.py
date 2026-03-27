@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.core.cache import cache
+from decouple import config
 
 YF_HEADERS = {"User-Agent": "Mozilla/5.0"}
 WGB_HEADERS = {
@@ -134,7 +136,15 @@ def _fetch_bonds():
 # ── Keep the old currency-only endpoint working ──
 @api_view(["GET"])
 def currency_rates(request):
+    # Cached for a short interval to reduce external calls
+    cache_key = 'currency_rates'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
     data = _fetch_currencies()
+    timeout = int(config('MARKET_DATA_CACHE_TIMEOUT', default=300))
+    cache.set(cache_key, data, timeout=timeout)
     return Response(data)
 
 
@@ -143,16 +153,25 @@ def currency_rates(request):
 def market_data(request):
     try:
         # Fetch USD/INR first (needed for commodity conversion)
+        cache_key = 'market_data'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         usd_inr = _get_usd_inr()
 
         with ThreadPoolExecutor(max_workers=3) as pool:
             f_comm = pool.submit(_fetch_commodities, usd_inr)
             f_curr = pool.submit(_fetch_currencies)
             f_bond = pool.submit(_fetch_bonds)
-        return Response({
+
+        payload = {
             "commodities": f_comm.result(),
             "currencies": f_curr.result(),
             "bonds": f_bond.result(),
-        })
+        }
+        timeout = int(config('MARKET_DATA_CACHE_TIMEOUT', default=300))
+        cache.set(cache_key, payload, timeout=timeout)
+        return Response(payload)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
